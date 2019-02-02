@@ -20,10 +20,13 @@ pub struct Image {
 impl Image {
 
     pub fn set(&mut self, x: usize, y: usize, color: Color) {
-        let i = (y * self.width + x) * 3;
-        self.pixels[i] = color.r;
-        self.pixels[i+1] = color.g;
-        self.pixels[i+2] = color.b;
+        if x >= 0 && x < self.width && y >= 0 && y < self.height {
+            let i = (y * self.width + x) * 3;
+            self.pixels[i] = color.r;
+            self.pixels[i+1] = color.g;
+            self.pixels[i+2] = color.b;
+        }
+
     }
 }
 
