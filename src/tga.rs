@@ -3,12 +3,24 @@ use std::io::{Read, Write, BufWriter, Seek, SeekFrom, Error, ErrorKind};
 use std::mem;
 use std::slice;
 use std::vec;
+use std::ops;
 
 #[derive(Copy, Clone)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+}
+
+impl ops::Mul<f64> for Color {
+    type Output = Color;
+
+    fn mul(self, rhs: f64) -> Color {
+        let r = (self.r as f64 * rhs) as u8;
+        let g = (self.g as f64 * rhs) as u8;
+        let b = (self.b as f64 * rhs) as u8;
+        Color {r, g, b}
+    }
 }
 
 pub struct Image {
@@ -22,9 +34,9 @@ impl Image {
     pub fn set(&mut self, x: usize, y: usize, color: Color) {
         if x < self.width && y < self.height {
             let i = (y * self.width + x) * 3;
-            self.pixels[i] = color.r;
+            self.pixels[i] = color.b;
             self.pixels[i+1] = color.g;
-            self.pixels[i+2] = color.b;
+            self.pixels[i+2] = color.r;
         }
 
     }

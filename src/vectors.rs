@@ -13,12 +13,70 @@ pub struct Vec3 {
     pub z: f64,
 }
 
+impl Vec3 {
+    pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
+        Vec3 { x, y, z}
+    }
+}
+
+impl Vec3 {
+
+    pub fn cross(self, rhs: Vec3) -> Vec3 {
+        let x = self.y * rhs.z - self.z * rhs.y;
+        let y = self.z * rhs.x -self.x * rhs.z;
+        let z = self.x * rhs.y - self.y * rhs.x;
+        Vec3 {x, y, z}
+    }
+
+    pub fn norm(self) -> f64 {
+        (self.x*self.x + self.y*self.y + self.z*self.z).sqrt()
+    }
+
+    pub fn normalize(self) -> Vec3 {
+        let l = self.norm();
+        let x = self.x / l;
+        let y = self.y / l;
+        let z = self.z / l;
+        Vec3 {x, y, z}
+    }
+}
+
+impl ops::Mul<Vec3> for Vec3 {
+    type Output = f64;
+
+    fn mul(self, rhs: Vec3) -> f64 {
+        self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Vec4 {
     pub x: f64,
     pub y: f64,
     pub z: f64,
     pub w: f64,
+}
+
+impl Vec4 {
+    pub fn new(x: f64, y: f64, z: f64, w: f64) -> Vec4 {
+        Vec4 { x, y, z, w}
+    }
+
+    pub fn xyz(self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.z)
+    }
+}
+
+impl ops::Sub<Vec4> for Vec4 {
+    type Output = Vec4;
+
+    fn sub(self, rhs: Vec4) -> Vec4 {
+        let x = self.x - rhs.x;
+        let y = self.y - rhs.y;
+        let z = self.z - rhs.z;
+        let w = self.w - rhs.w;
+        Vec4 {x, y, z, w}
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -60,5 +118,4 @@ impl ops::Mul<Vec4> for Mat4 {
         let w = self.m30 * rhs.x + self.m31 * rhs.y + self.m32 * rhs.z + self.m33 * rhs.w;
         Vec4 {x, y, z, w}
     }
-
 }
