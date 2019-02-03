@@ -2,6 +2,18 @@ use std::usize;
 
 mod tga;
 mod mesh;
+mod vectors;
+
+use crate::vectors::{Vec4, Mat4};
+
+
+fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, color: tga::Color, img: &mut tga::Image) {
+
+    line(v0.x, v0.y, v1.x, v1.y, color, img);
+    line(v1.x, v1.y, v2.x, v2.y, color, img);
+    line(v2.x, v2.y, v0.x, v0.y, color, img);
+
+}
 
 fn line(x0: f64, y0: f64, x1: f64, y1: f64, color: tga::Color, img: &mut tga::Image) {
 
@@ -38,26 +50,27 @@ fn line(x0: f64, y0: f64, x1: f64, y1: f64, color: tga::Color, img: &mut tga::Im
 }
 
 fn main() {
-    let mut mesh = mesh::load("obj/african_head/african_head.obj").unwrap();
+    let mesh = mesh::load("obj/african_head/african_head.obj").unwrap();
     let mut img = tga::create(1024, 1024);
 
     let w = img.width as f64;
     let h = img.height as f64;
 
-    println!("{}", mesh.indices.len());
+    let cam_mat = Mat4::new(
+        w/2.0, 0.0, 0.0, w/2.0,
+        0.0, h/2.0, 0.0, h/2.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
 
     for i in (0..mesh.indices.len()).step_by(3) {
-        for j in 0..3 {
-            let v0 = (mesh.indices[i + j] as usize) - 1;
-            let v1 = (mesh.indices[i + (j+1) % 3] as usize) - 1;
 
-            let x1 = (mesh.vertices[3 * v0] + 1.0) * w/2.0;
-            let y1 = (mesh.vertices[3 * v0 + 1] + 1.0) * h/2.0;
+        let v0 = cam_mat * mesh.vertices[(mesh.indices[i] - 1) as usize];
+        let v1 = cam_mat * mesh.vertices[(mesh.indices[i + 1] - 1) as usize];
+        let v2 = cam_mat * mesh.vertices[(mesh.indices[i + 2] - 1) as usize];
 
-            let x2 = (mesh.vertices[3 * v1] + 1.0) * w/2.0;
-            let y2 = (mesh.vertices[3 * v1 + 1] + 1.0) * h/2.0;
-            line(x1, y1, x2, y2, tga::Color {r: 255, g: 255, b:255 }, &mut img);
-        }
+        triangle(v0, v1, v2, tga::Color {r: 255, g: 0, b: 0}, &mut img);
+
     }
 
     line(128.0,128.0, 896.0, 128.0,tga::Color {r: 255, g: 0, b: 0}, &mut img);

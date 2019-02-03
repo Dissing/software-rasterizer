@@ -20,7 +20,7 @@ pub struct Image {
 impl Image {
 
     pub fn set(&mut self, x: usize, y: usize, color: Color) {
-        if x >= 0 && x < self.width && y >= 0 && y < self.height {
+        if x < self.width && y < self.height {
             let i = (y * self.width + x) * 3;
             self.pixels[i] = color.r;
             self.pixels[i+1] = color.g;
@@ -80,7 +80,7 @@ pub fn load(name: &str) -> std::io::Result<Image> {
 
 pub fn save(img: Image, name: &str) -> std::io::Result<()> {
 
-    let mut file = File::create(name)?;
+    let file = File::create(name)?;
     let mut writer = BufWriter::new(file);
 
     let mut header =  [0; 18];
