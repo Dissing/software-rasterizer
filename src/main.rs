@@ -1,12 +1,11 @@
 use std::usize;
-use std::cmp;
 use std::f64;
 
 mod tga;
 mod mesh;
 mod vectors;
 
-use crate::vectors::{Vec3, Vec4, Mat4};
+use crate::vectors::{Vec2, Vec3, Vec4, Mat4};
 
 fn sort_2_vertices(v0: Vec4, v1: Vec4) -> (Vec4, Vec4) {
     if v0.y <= v1.y {
@@ -29,8 +28,20 @@ fn sort_3_vertices(v0: Vec4, v1: Vec4, v2: Vec4) -> (Vec4, Vec4, Vec4) {
     }
 }
 
+fn tri_interpolate(p: Vec3, v0: Vec3, v1: Vec3, v2: Vec3) -> (f64, f64, f64) {
+    let p0 = v0 - p;
+    let p1 = v1 - p;
+    let p2 = v2 - p;
 
-fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, color: tga::Color, img: &mut tga::Image, z_buffer: &mut [f64]) {
+    let a = (v0-v1).cross(v0-v2).norm();
+    let a0 = p1.cross(p2).norm() / a;
+    let a1 = p0.cross(p2).norm() / a;
+    let a2 = p0.cross(p1).norm() / a;
+    (a0, a1, a2)
+}
+
+
+fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, t0: Vec2, t1: Vec2, t2: Vec2, color: tga::Color, img: &mut tga::Image, diffuse: &tga::Image, z_buffer: &mut [f64]) {
 
     let (fst, snd, thd) = sort_3_vertices(v0, v1, v2);
 
@@ -43,8 +54,8 @@ fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, color: tga::Color, img: &mut tga::Imag
         let t_3 = (y-fst_y) as f64 / (thd_y - fst_y) as f64;
         let x_2 = (t_2*snd.x + (1.0 - t_2) * fst.x) as usize;
         let x_3 = (t_3*thd.x + (1.0 - t_3) * fst.x) as usize;
-        let z_2 = (t_2*snd.z + (1.0 - t_2) * fst.z);
-        let z_3 = (t_3*thd.z + (1.0 - t_3) * fst.z);
+        let z_2 = t_2*snd.z + (1.0 - t_2) * fst.z;
+        let z_3 = t_3*thd.z + (1.0 - t_3) * fst.z;
 
         let (left_x, right_x, left_z, right_z) = if x_2 < x_3 {
             (x_2, x_3, z_2, z_3)
@@ -57,8 +68,17 @@ fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, color: tga::Color, img: &mut tga::Imag
             let z = right_z * tz + left_z * (1.0 - tz);
             let zidx = y * img.width + x;
             if z > z_buffer[zidx] {
+
+                let (a, b, c) = tri_interpolate(Vec3::new(x as f64, y as f64, z), v0.xyz(), v1.xyz(), v2.xyz());
+
+                let uv = t0 * a + t1 * b + t2 * c;
+
+                println!("{} {}", uv.x, uv.y);
+
+                let tex = diffuse.read(uv.x as usize * img.width, uv.y as usize * img.height);
+
                 z_buffer[zidx] = z;
-                img.set(x, y,  color);
+                img.set(x, y,  tex);
             }
         }
     }
@@ -68,8 +88,8 @@ fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, color: tga::Color, img: &mut tga::Imag
         let t_3 = (thd_y - y) as f64 / (thd_y - snd_y) as f64;
         let x_2 = (t_2*fst.x + (1.0 - t_2) * thd.x) as usize;
         let x_3 = (t_3*snd.x + (1.0 - t_3) * thd.x) as usize;
-        let z_2 = (t_2*fst.z + (1.0 - t_2) * thd.z);
-        let z_3 = (t_3*snd.z + (1.0 - t_3) * thd.z);
+        let z_2 = t_2*fst.z + (1.0 - t_2) * thd.z;
+        let z_3 = t_3*snd.z + (1.0 - t_3) * thd.z;
 
         let (left_x, right_x, left_z, right_z) = if x_2 < x_3 {
             (x_2, x_3, z_2, z_3)
@@ -125,6 +145,7 @@ fn line(x0: f64, y0: f64, x1: f64, y1: f64, color: tga::Color, img: &mut tga::Im
 
 fn main() {
     let mesh = mesh::load("obj/african_head/african_head.obj").unwrap();
+    let diffuse = tga::load("obj/african_head/african_head_diffuse.tga").unwrap();
     let mut img = tga::create(1024, 1024);
 
     let mut z_buffer = vec![f64::NEG_INFINITY; 1024*1024];
@@ -156,13 +177,13 @@ fn main() {
         let v1 = mesh.vertices[(mesh.indices[i + 1] - 1) as usize];
         let v2 = mesh.vertices[(mesh.indices[i + 2] - 1) as usize];
 
-        let _t0 = mesh.tex_coords[(mesh.indices[i + 3] - 1)  as usize];
-        let _t1 = mesh.tex_coords[(mesh.indices[i + 4] - 1)  as usize];
-        let _t2 = mesh.tex_coords[(mesh.indices[i + 5] - 1)  as usize];
+        let t0 = mesh.tex_coords[(mesh.indices[i + 3] - 1)  as usize];
+        let t1 = mesh.tex_coords[(mesh.indices[i + 4] - 1)  as usize];
+        let t2 = mesh.tex_coords[(mesh.indices[i + 5] - 1)  as usize];
 
-        let n0 = mesh.normals[(mesh.indices[i + 6] - 1)  as usize];
-        let n1 = mesh.normals[(mesh.indices[i + 7] - 1)  as usize];
-        let n2 = mesh.normals[(mesh.indices[i + 8] - 1)  as usize];
+        let _n0 = mesh.normals[(mesh.indices[i + 6] - 1)  as usize];
+        let _n1 = mesh.normals[(mesh.indices[i + 7] - 1)  as usize];
+        let _n2 = mesh.normals[(mesh.indices[i + 8] - 1)  as usize];
 
         let e0 = v1 - v0;
         let e1 = v2 - v0;
@@ -173,8 +194,8 @@ fn main() {
         let intensity = face_normal * light_dir;
 
         if intensity > 0.0 {
-            triangle(cam_mat * v0, cam_mat * v1, cam_mat * v2,
-                     tga::Color {r: 255, g: 255, b: 255} * intensity, &mut img, &mut z_buffer);
+            triangle(cam_mat * v0, cam_mat * v1, cam_mat * v2, t0, t1, t2,
+                     tga::Color {r: 255, g: 255, b: 255} * intensity, &mut img, &diffuse, &mut z_buffer);
         }
 
     }

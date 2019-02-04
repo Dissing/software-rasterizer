@@ -31,6 +31,13 @@ pub struct Image {
 
 impl Image {
 
+    pub fn read(&self, x: usize, y: usize) -> Color {
+        let i = (y * self.width + x) * 3;
+        Color {r: self.pixels[i],
+               g: self.pixels[i+1],
+               b: self.pixels[i+2]}
+    }
+
     pub fn set(&mut self, x: usize, y: usize, color: Color) {
         if x < self.width && y < self.height {
             let i = (y * self.width + x) * 3;

@@ -26,7 +26,7 @@ fn parse_face(parts: Vec<&str>, indices: &mut Vec<u32>)  {
 pub fn load(name: &str) -> std::io::Result<Mesh> {
     let mut content = String::new();
     let mut file = File::open(name)?;
-    file.read_to_string(&mut content);
+    file.read_to_string(&mut content)?;
 
     let mut vertices = Vec::new();
     let mut tex_coords = Vec::new();

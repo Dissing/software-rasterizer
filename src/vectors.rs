@@ -6,6 +6,30 @@ pub struct Vec2 {
     pub y: f64,
 }
 
+impl ops::Add<Vec2> for Vec2 {
+    type Output = Vec2;
+
+    fn add(self, rhs: Vec2) -> Vec2 {
+        Vec2 {x: self.x + rhs.x, y: self.y + rhs.y}
+    }
+}
+
+impl ops::Mul<Vec2> for Vec2 {
+    type Output = f64;
+
+    fn mul(self, rhs: Vec2) -> f64 {
+        self.x * rhs.x + self.y * rhs.y
+    }
+}
+
+impl ops::Mul<f64> for Vec2 {
+    type Output = Vec2;
+
+    fn mul(self, rhs: f64) -> Vec2 {
+        Vec2 {x: self.x * rhs, y: self.y * rhs}
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Vec3 {
     pub x: f64,
@@ -37,6 +61,17 @@ impl Vec3 {
         let x = self.x / l;
         let y = self.y / l;
         let z = self.z / l;
+        Vec3 {x, y, z}
+    }
+}
+
+impl ops::Sub<Vec3> for Vec3 {
+    type Output = Vec3;
+
+    fn sub(self, rhs: Vec3) -> Vec3 {
+        let x = self.x - rhs.x;
+        let y = self.y - rhs.y;
+        let z = self.z - rhs.z;
         Vec3 {x, y, z}
     }
 }
