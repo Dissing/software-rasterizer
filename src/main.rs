@@ -1,5 +1,6 @@
 use std::usize;
 use std::f64;
+use std::cmp;
 
 mod tga;
 mod mesh;
@@ -7,103 +8,42 @@ mod vectors;
 
 use crate::vectors::{Vec2, Vec3, Vec4, Mat4};
 
-fn sort_2_vertices(v0: Vec4, v1: Vec4) -> (Vec4, Vec4) {
-    if v0.y <= v1.y {
-        (v0, v1)
-    } else {
-        (v1, v0)
-    }
-}
 
-fn sort_3_vertices(v0: Vec4, v1: Vec4, v2: Vec4) -> (Vec4, Vec4, Vec4) {
-    if v0.y <= v1.y && v0.y <= v2.y {
-        let (snd, thd) = sort_2_vertices(v1, v2);
-        (v0, snd, thd)
-    } else if v1.y <= v0.y && v1.y <= v2.y {
-        let (snd, thd) = sort_2_vertices(v0, v2);
-        (v1, snd, thd)
-    } else {
-        let (snd, thd) = sort_2_vertices(v0, v1);
-        (v2, snd, thd)
-    }
-}
+fn rasterize<F>(v0: Vec4, v1: Vec4, v2: Vec4, img: &mut tga::Image, z_buffer: &mut [f64], fragment_shader: F) where F: Fn(f64, f64, f64) -> tga::Color {
 
-fn tri_interpolate(p: Vec3, v0: Vec3, v1: Vec3, v2: Vec3) -> (f64, f64, f64) {
-    let p0 = v0 - p;
-    let p1 = v1 - p;
-    let p2 = v2 - p;
-
-    let a = (v0-v1).cross(v0-v2).norm();
-    let a0 = p1.cross(p2).norm() / a;
-    let a1 = p0.cross(p2).norm() / a;
-    let a2 = p0.cross(p1).norm() / a;
-    (a0, a1, a2)
-}
-
-
-fn triangle(v0: Vec4, v1: Vec4, v2: Vec4, t0: Vec2, t1: Vec2, t2: Vec2, color: tga::Color, img: &mut tga::Image, diffuse: &tga::Image, z_buffer: &mut [f64]) {
-
-    let (fst, snd, thd) = sort_3_vertices(v0, v1, v2);
-
-    let fst_y = fst.y as usize;
-    let snd_y = snd.y as usize;
-    let thd_y = thd.y as usize;
-
-    for y in fst_y..snd_y {
-        let t_2 = (y-fst_y) as f64 / (snd_y - fst_y) as f64;
-        let t_3 = (y-fst_y) as f64 / (thd_y - fst_y) as f64;
-        let x_2 = (t_2*snd.x + (1.0 - t_2) * fst.x) as usize;
-        let x_3 = (t_3*thd.x + (1.0 - t_3) * fst.x) as usize;
-        let z_2 = t_2*snd.z + (1.0 - t_2) * fst.z;
-        let z_3 = t_3*thd.z + (1.0 - t_3) * fst.z;
-
-        let (left_x, right_x, left_z, right_z) = if x_2 < x_3 {
-            (x_2, x_3, z_2, z_3)
-        } else {
-            (x_3, x_2, z_3, z_2)
-        };
-
-        for x in left_x..right_x {
-            let tz = (x-left_x) as f64 / (right_x - left_x) as f64;
-            let z = right_z * tz + left_z * (1.0 - tz);
-            let zidx = y * img.width + x;
-            if z > z_buffer[zidx] {
-
-                let (a, b, c) = tri_interpolate(Vec3::new(x as f64, y as f64, z), v0.xyz(), v1.xyz(), v2.xyz());
-
-                let uv = t0 * a + t1 * b + t2 * c;
-
-                println!("{} {}", uv.x, uv.y);
-
-                let tex = diffuse.read(uv.x as usize * img.width, uv.y as usize * img.height);
-
-                z_buffer[zidx] = z;
-                img.set(x, y,  tex);
-            }
-        }
+    fn edge(p: Vec2, e0: Vec4, e1: Vec4) -> f64 {
+        (p.x as f64 - e0.x) * (e1.y - e0.y) - (p.y as f64 - e0.y) * (e1.x - e0.x)
     }
 
-    for y in snd_y..thd_y {
-        let t_2 = (thd_y - y) as f64 / (thd_y - fst_y) as f64;
-        let t_3 = (thd_y - y) as f64 / (thd_y - snd_y) as f64;
-        let x_2 = (t_2*fst.x + (1.0 - t_2) * thd.x) as usize;
-        let x_3 = (t_3*snd.x + (1.0 - t_3) * thd.x) as usize;
-        let z_2 = t_2*fst.z + (1.0 - t_2) * thd.z;
-        let z_3 = t_3*snd.z + (1.0 - t_3) * thd.z;
+    let min_x = v0.x.min(v1.x.min(v2.x)).max(0.0) as usize;
+    let min_y = v0.y.min(v1.y.min(v2.y)).max(0.0) as usize;
+    let max_x = v0.x.max(v1.x.max(v2.x)).min(img.width as f64 - 1.0) as usize;
+    let max_y = v0.y.max(v1.y.max(v2.y)).min(img.height as f64 - 1.0) as usize;
 
-        let (left_x, right_x, left_z, right_z) = if x_2 < x_3 {
-            (x_2, x_3, z_2, z_3)
-        } else {
-            (x_3, x_2, z_3, z_2)
-        };
+    for i in min_x..max_x+1 {
+        for j in min_y..max_y+1 {
 
-        for x in left_x..right_x {
-            let tz = (x-left_x) as f64 / (right_x - left_x) as f64;
-            let z = right_z * tz + left_z * (1.0 - tz);
-            let zidx = y * img.width + x;
-            if z > z_buffer[zidx] {
-                z_buffer[zidx] = z;
-                img.set(x, y,  color);
+            let p = Vec2::new(i as f64, j as f64);
+            let a = edge(p, v1, v2);
+            let b = edge(p, v2, v0);
+            let c = edge(p, v0, v1);
+
+            if a <= 0.0 && b <= 0.0 && c <= 0.0 {
+
+                let area = edge(v0.xy(), v1, v2);
+                let w0 = a / area;
+                let w1 = b / area;
+                let w2 = c / area;
+
+                let z = 1.0/(w0 * 1.0/v0.z + w1 * 1.0/v1.z + w2 * 1.0/v2.z);
+
+                if z < z_buffer[j * img.width + i] {
+                    continue;
+                }
+
+                let color = fragment_shader(w0, w1, w2);
+                img.set(i, j, color);
+                z_buffer[j * img.width + i] = z;
             }
         }
     }
@@ -153,14 +93,14 @@ fn main() {
     let w = img.width as f64;
     let h = img.height as f64;
 
-    /*triangle(Vec4::new(10.0, 70.0,0.0,0.0), Vec4::new(50.0,160.0,0.0,0.0),
-             Vec4::new(70.0,80.0,0.0,0.0), tga::Color {r: 255, g: 255, b: 255}, &mut img);
+    /*rasterize(Vec4::new(10.0, 70.0,0.0,0.0), Vec4::new(50.0,160.0,0.0,0.0),
+             Vec4::new(70.0,80.0,0.0,0.0), &mut img, &mut z_buffer);
 
-    triangle(Vec4::new(180.0, 50.0,0.0,0.0), Vec4::new(150.0,1.0,0.0,0.0),
-             Vec4::new(70.0,180.0,0.0,0.0), tga::Color {r: 255, g: 255, b: 255}, &mut img);
+    rasterize(Vec4::new(180.0, 50.0,0.0,0.0), Vec4::new(150.0,1.0,0.0,0.0),
+             Vec4::new(70.0,180.0,0.0,0.0), &mut img, &mut z_buffer);
 
-    triangle(Vec4::new(180.0, 150.0,0.0,0.0), Vec4::new(120.0,160.0,0.0,0.0),
-             Vec4::new(130.0,180.0,0.0,0.0), tga::Color {r: 255, g: 255, b: 255}, &mut img);*/
+    rasterize(Vec4::new(180.0, 150.0,0.0,0.0), Vec4::new(120.0,160.0,0.0,0.0),
+             Vec4::new(130.0,180.0,0.0,0.0), &mut img, &mut z_buffer);*/
 
     let cam_mat = Mat4::new(
         w/2.0, 0.0, 0.0, w/2.0,
@@ -193,12 +133,18 @@ fn main() {
 
         let intensity = face_normal * light_dir;
 
+        let shader = |a,b,c| {
+            let tex: Vec2 = t0 * a + t1 * b + t2 * c;
+            let tex_x = (tex.x * diffuse.height as f64) as usize;
+            let tex_y = (tex.y * diffuse.height as f64) as usize;
+            let d = diffuse.read(tex_x, tex_y);
+            d * intensity
+        };
+
         if intensity > 0.0 {
-            triangle(cam_mat * v0, cam_mat * v1, cam_mat * v2, t0, t1, t2,
-                     tga::Color {r: 255, g: 255, b: 255} * intensity, &mut img, &diffuse, &mut z_buffer);
+            rasterize(cam_mat * v0, cam_mat * v1, cam_mat * v2, &mut img, &mut z_buffer, shader);
         }
 
     }
-
     tga::save(img, "output.tga").unwrap();
 }

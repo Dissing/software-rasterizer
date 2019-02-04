@@ -6,6 +6,12 @@ pub struct Vec2 {
     pub y: f64,
 }
 
+impl Vec2 {
+    pub fn new(x: f64, y: f64) -> Vec2 {
+        Vec2 {x, y}
+    }
+}
+
 impl ops::Add<Vec2> for Vec2 {
     type Output = Vec2;
 
@@ -97,6 +103,9 @@ impl Vec4 {
         Vec4 { x, y, z, w}
     }
 
+    pub fn xy(self) -> Vec2 {
+        Vec2::new(self.x, self.y)
+    }
     pub fn xyz(self) -> Vec3 {
         Vec3::new(self.x, self.y, self.z)
     }
