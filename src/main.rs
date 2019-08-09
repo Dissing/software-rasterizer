@@ -88,7 +88,7 @@ fn main() {
     let diffuse = tga::load("obj/african_head/african_head_diffuse.tga").unwrap();
     let mut img = tga::create(1024, 1024);
 
-    let mut z_buffer = vec![f64::NEG_INFINITY; 1024*1024];
+    let mut z_buffer = vec![f64::NEG_INFINITY; img.width * img.height];
 
     let w = img.width as f64;
     let h = img.height as f64;
@@ -121,24 +121,30 @@ fn main() {
         let t1 = mesh.tex_coords[(mesh.indices[i + 4] - 1)  as usize];
         let t2 = mesh.tex_coords[(mesh.indices[i + 5] - 1)  as usize];
 
-        let _n0 = mesh.normals[(mesh.indices[i + 6] - 1)  as usize];
-        let _n1 = mesh.normals[(mesh.indices[i + 7] - 1)  as usize];
-        let _n2 = mesh.normals[(mesh.indices[i + 8] - 1)  as usize];
+        let n0 = mesh.normals[(mesh.indices[i + 6] - 1)  as usize];
+        let n1 = mesh.normals[(mesh.indices[i + 7] - 1)  as usize];
+        let n2 = mesh.normals[(mesh.indices[i + 8] - 1)  as usize];
 
         let e0 = v1 - v0;
         let e1 = v2 - v0;
 
         let face_normal = e0.xyz().cross(e1.xyz()).normalize();
-
-
         let intensity = face_normal * light_dir;
 
         let shader = |a,b,c| {
+
+            let normal: Vec3 = n0 * a + n1 * b + n2 * c;
+            let n = normal.normalize();
+
             let tex: Vec2 = t0 * a + t1 * b + t2 * c;
             let tex_x = (tex.x * diffuse.height as f64) as usize;
             let tex_y = (tex.y * diffuse.height as f64) as usize;
             let d = diffuse.read(tex_x, tex_y);
-            d * intensity
+            if intensity > 0.0 {
+                d * intensity
+            } else {
+                d * 0.01
+            }
         };
 
         if intensity > 0.0 {
